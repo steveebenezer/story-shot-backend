@@ -18,7 +18,6 @@ module Type.User
   , UserRead
   , UserS
   , PGUser
-  , UserIncludes(..)
   , userTable
   , userName
   , mkUserWrite
@@ -98,9 +97,27 @@ type UserRead = PGUser'
 
 
 instance CR.Resource User where
-  identity = _userID
+  rid = _userID
   createdAt = _createdAt
   updatedAt = _updatedAt
+
+
+instance CR.UnlinkedResource PGUser where
+  urid = _pgUserID
+
+
+instance CR.LinkedResource User where
+  lrid = _userID
+
+  mkLinkedResource PGUser{..} [author'] [] = User
+    { _userID = _pgUserID
+    , _userName = _pgUserName
+    , _userAuthor = author'
+    , _createdAt = _pgCreatedAt
+    , _updatedAt = _pgUpdatedAt
+    }
+  mkLinkedResource _ _ _ = error "Undefined is not a function"
+
 
 
 -- Magic
@@ -130,7 +147,6 @@ mkUserFromDB PGUser{..} author' = User
   , _createdAt = _pgCreatedAt
   , _updatedAt = _pgUpdatedAt
   }
-
 
 mkUserWrite :: UserPut -> UserWrite
 mkUserWrite User{..} = PGUser
@@ -245,27 +261,3 @@ validUserPutObject = Aeson.object
   , "name" .= ("The name you want to give to the user with the above id" :: Text.Text)
   ]
 
-
-
--- Query Params Processing
-
-data UserIncludes
-  = IAuthor
-  deriving (Show, Eq)
-
-
-instance CI.Includes UserIncludes where
-  getAll = [IAuthor]
-
-  fromCSV :: Text.Text -> Either TAe.ClientError [UserIncludes]
-  fromCSV =
-    let
-      fromString :: Text.Text -> Either TAe.ClientError UserIncludes
-      fromString "author" = Right IAuthor
-      fromString _ = Left TAe.InvalidQueryParams
-      
-      f :: ([TAe.ClientError], [UserIncludes]) -> Either TAe.ClientError [UserIncludes]
-      f (x:_, _) = Left x
-      f (_, ys) = Right ys
-   in
-      f . DEither.partitionEithers . map fromString . Text.splitOn ","

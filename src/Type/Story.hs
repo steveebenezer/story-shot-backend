@@ -118,7 +118,7 @@ type StoryWrite = PGStory'
 
 
 instance CR.Resource Story where
-  identity  = _storyID
+  rid  = _storyID
   createdAt = _createdAt
   updatedAt = _updatedAt
 
